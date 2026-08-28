@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "The Tohunga's Apprentice",
+    "slug": "tohungas-apprentice-build",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "org.koroai.tohungasapprentice",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "versionCode": 2
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "70184817-ac23-49a1-82c7-2f1f0871a0d6"
+      }
+    },
+    "owner": "iamkoroteaos-team"
+  }
+}
