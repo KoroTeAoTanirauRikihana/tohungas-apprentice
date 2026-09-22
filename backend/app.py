@@ -448,7 +448,11 @@ _last_refresh: dict = {"at": None, "synced_files": 0, "dropped_paragraphs": 0, "
 # nothing to sync and log that plainly rather than crash; a different
 # sync mechanism (e.g. Koro pushing a filtered snapshot to the host)
 # would be the real next step for that deployment shape.
-REFRESH_INTERVAL_HOURS = float(os.environ.get("TOHUNGAS_APPRENTICE_REFRESH_HOURS", "24"))
+# 2026-09-22: 24 h meant the Gold seeded into the vault that afternoon did not
+# reach apprentice.koroai.org until a restart; the vault grows every hour now
+# (the research road), so the app re-syncs hourly - a filtered copy of ~600
+# files, cheap - and a new file is served within the hour, no restart.
+REFRESH_INTERVAL_HOURS = float(os.environ.get("TOHUNGAS_APPRENTICE_REFRESH_HOURS", "1"))
 
 
 def _refresh_loop() -> None:
