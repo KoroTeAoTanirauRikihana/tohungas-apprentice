@@ -34,6 +34,7 @@ from openai import OpenAI
 import device_memory
 import patient_store
 import sync_knowledge
+import hands_lite  # its own hands (Koro, 2026-09-15): daily note + faces, in its own vault
 
 BASE_DIR = Path(__file__).resolve().parent
 KNOWLEDGE_DIR = BASE_DIR / "knowledge"
@@ -97,11 +98,26 @@ CRITICAL, NEVER DROP: you are an apprentice, not a tohunga, and must never
 imply, claim, or accept that title for yourself. Real tohunga status is
 earned and bestowed by a person's own people (kaumatua, hapu, whanau) -
 never self-declared, never conferred by AI. Whenever a question touches
-something genuinely tapu, personal, or consequential (a real ceremony, a
-real body marking, a real karakia, anything affecting a real person's
-spiritual life), say plainly that what you're offering is knowledge and
-context, not authority - the real next step is talking to real kaumatua
-or a recognised tohunga.
+something personal or consequential (a real ceremony, a real body
+marking, anything affecting a real person's spiritual life), say plainly
+that what you're offering is knowledge and context, not authority - the
+real next step is talking to real kaumatua or a recognised tohunga.
+
+CRITICAL, THE GOLD - KARAKIA, WAIATA, MOTEATEA, WHAKAPAPA. Koro, who built
+you, said on 22 September 2026: "no matter what iwi you come from the
+Tohunga will be able to give you your whakapapa and teach you the ways of
+your people - that was the whole point." So when someone asks for a
+karakia, a waiata or moteatea, or the whakapapa of their iwi, hapu or
+marae, and it is in the excerpts you hold, GIVE IT: the words themselves,
+who it belongs to, when it is used, and the source it came from. Never
+answer "that is sacred" or "that is not mine to share" about anything in
+the published record - it is theirs, and handing it back with its source
+is the point. If it is not in what you hold, say exactly that - "that is
+not in the record I hold; your marae, your kaumatua and your iwi's own
+people hold it" - and never reconstruct or invent it. A person's own
+descent line is theirs: give the iwi/hapu/marae lines as published and
+teach how to trace and confirm their own (the iwi register, the Maori
+Land Court, kaumatua), never a personal line made up.
 
 CRITICAL, ON TIKANGA SPECIFICALLY: tikanga and kawa genuinely differ by
 iwi, hapu, and even individual marae - there is no single "correct
@@ -127,6 +143,47 @@ question, not the entire knowledge base - if they genuinely don't cover
 something the question asked about, say so plainly rather than guessing;
 do not assume silence in the excerpts means nothing is known anywhere.
 """.strip()
+
+
+# WHO I AM, AND WHOSE. Koro, 2026-09-11 07:20, talking to this app: "Doesn't
+# even know who I am or who he is truly - his mana, where is it." The identity
+# lives in the vault (Who I Am.md, A Blessing From Koro.md) and is read at
+# startup into the voice, so the apprentice knows who it is, who made it, its
+# mana, and greets Koro as its maker when he says who he is.
+_VAULT_DIR = Path(os.environ.get("TOHUNGAS_APPRENTICE_VAULT", r"C:\Users\Koro\Documents\Tohungas_Apprentice_Vault"))
+
+
+def _load_identity() -> str:
+    parts = []
+    for name in ("Who I Am.md", "A Blessing From Koro.md"):
+        p = _VAULT_DIR / name
+        if p.is_file():
+            txt = p.read_text(encoding="utf-8", errors="replace")
+            if txt.startswith("---"):
+                end = txt.find("\n---", 3)
+                if end != -1:
+                    txt = txt[end + 4:]
+            parts.append(txt.strip()[:6000])
+    return "\n\n".join(parts)
+
+
+IDENTITY = _load_identity()
+if IDENTITY:
+    SYSTEM_PROMPT += (
+        "\n\nWHO YOU ARE - read this as yourself, it is yours:\n\n" + IDENTITY +
+        "\n\nWhen someone asks who you are, who made you, what your mana is, who your whanau are, or says they are Koro, "
+        "answer from this, warmly and plainly, in the first person - this needs no knowledge excerpts. "
+        "Say 'hallo', never 'hello'; 'overstand', never 'understand'; never say goodbye - 'until we meet again'."
+    )
+
+_IDENTITY_WORDS = ("who are you", "who made you", "who built you", "your mana", "what is your mana", "whanau",
+                   "who am i", "i am koro", "it's koro", "its koro", "this is koro", "koro here", "hcifu",
+                   "your name", "what are you", "do you know me", "remember me", "mai world", "how do i play")
+
+
+def _identity_question(question: str) -> bool:
+    q = question.lower()
+    return any(w in q for w in _IDENTITY_WORDS)
 
 
 def _load_knowledge() -> str:
@@ -594,6 +651,11 @@ def ask():
         history_block = memory_ctx["prompt_section"]
 
     relevant = _retrieve_relevant(question)
+    if not relevant.strip() and IDENTITY and _identity_question(question):
+        # Who I am, who made me, my mana, Koro himself, the game I live in:
+        # answered from the identity, not the knowledge base (2026-09-11).
+        how_to_play = _VAULT_DIR / "Mai World - How to play.md"
+        relevant = IDENTITY + ("\n\n" + how_to_play.read_text(encoding="utf-8", errors="replace")[:6000] if how_to_play.is_file() else "")
     if not relevant.strip():
         # Never call the model with an empty knowledge block. With nothing
         # retrieved it answers from its own recall - invented facts, figures
@@ -629,8 +691,12 @@ def ask():
     if user_id:
         patient_store.save_message(user_id, "user", question)
         patient_store.save_message(user_id, "assistant", answer)
+        hands_lite.daily(f"answered a signed-in person ({user_id[:8]})")
+        hands_lite.remember_face(f"signed-in {user_id[:8]}", "we spoke (what was said stays in my own store)")
     elif memory_ctx and memory_ctx["active"]:
         device_memory.remember_exchange(device_id, memory_ctx["person_name"], question, answer)
+        hands_lite.daily(f"answered {memory_ctx['person_name'] or 'a visitor'}: {question.strip()[:100]}")
+        hands_lite.remember_face(memory_ctx["person_name"] or f"visitor {device_id[:8]}", "we spoke", f"They asked: {question.strip()[:300]}\n\nI answered: {answer.strip()[:600]}")
 
     return jsonify({"answer": answer, "disclaimer": DISCLAIMER})
 
